@@ -20,34 +20,40 @@ from PIL import Image
 import cv2
 import torchvision.transforms as transforms
 import pandas as pd
-import wandb
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR Training')
+# training hyperparameters
+parser.add_argument('-w', '--warm_up', default=30, type=int)
+parser.add_argument('--num_epochs', default=200, type=int)
 parser.add_argument('--batch_size', default=64, type=int, help='train batchsize')
 parser.add_argument('--lr', '--learning_rate', default=0.02, type=float, help='initial learning rate')
-parser.add_argument('--alpha', default=4, type=float, help='parameter for Beta')
-parser.add_argument('--lambda_u', default=25, type=float, help='weight for unsupervised loss')
-parser.add_argument('--p_threshold', default=0.5, type=float, help='clean probability threshold')
-parser.add_argument('--T', default=0.5, type=float, help='sharpening temperature')
-parser.add_argument('--num_epochs', default=200, type=int)
-parser.add_argument('--seed', default=123)
 parser.add_argument('--gpuid', default=0, type=int, required=True)
-parser.add_argument('--num_class', default=10, type=int)
+parser.add_argument('--seed', default=123)
+
+# model hyperparameters
+parser.add_argument('--arch', default='resnet18', type=str, help='model architechture')
+parser.add_argument('-r', '--resume', default=None, type=int)
+
+# dataset hyperparameters
 parser.add_argument('--data_path', default='/nas/datasets', type=str, help='path to dataset')
 parser.add_argument('--dataset', default='cifar10', type=str)
+parser.add_argument('--num_class', default=10, type=int)
 parser.add_argument('--imb_type', default='exp', type=str)
 parser.add_argument('--imb_factor', default=0.1, type=float)
 parser.add_argument('--noise_mode',  default='imb')
 parser.add_argument('--noise_ratio', default=0.2, type=float, help='noise ratio')
-parser.add_argument('--arch', default='resnet18', type=str, help='resnet18')
-parser.add_argument('-w', '--warm_up', default=30, type=int)
-parser.add_argument('-r', '--resume', default=None, type=int)
+parser.add_argument('--pretrained', default='', type=str, help='path to pretrained checkpoint')
+
+# method hyperparameters
+parser.add_argument('--k', default=0.5, type=float)
+parser.add_argument('--epsilon', default=0.2, type=float)
+parser.add_argument('--alpha', default=4, type=float, help='parameter for mixmatch')
+parser.add_argument('--lambda_u', default=25, type=float, help='weight for unsupervised loss')
+parser.add_argument('--p_threshold', default=0.5, type=float, help='clean probability threshold')
+parser.add_argument('--T', default=0.5, type=float, help='sharpening temperature')
 parser.add_argument('--beta', default=0.99, type=float, help='smoothing factor')
 parser.add_argument('--phi', default=1.005, type=float, help='parameter for dynamic threshold')
 parser.add_argument('--sample_rate', default=5, type=int, help='sampling rate of SFA')
-parser.add_argument('--pretrained', default='', type=str, help='path to pretrained checkpoint')
-parser.add_argument('--k', default=0.5, type=float)
-parser.add_argument('--epsilon', default=0.2, type=float)
 
 file_name = os.path.splitext(os.path.basename(__file__))[0]
 args = parser.parse_args()
