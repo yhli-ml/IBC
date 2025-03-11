@@ -26,5 +26,4 @@ for dataset in "${datasets[@]}"; do
     done
 done
 
-
 # python Train_cifar.py --dataset cifar10 --noise_ratio 0.2 --imb_factor 0.1 --warm_up 1 --num_epoch 2 --gpuid 5
