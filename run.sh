@@ -1,5 +1,5 @@
 #!/bin/bash
-Method="Train_cifar_w_three_experts"
+Method="Train_cifar"
 datasets=("cifar10" "cifar100")
 noise_ratios=(0.2 0.5)
 imb_ratios=(0.005)
@@ -27,4 +27,4 @@ for dataset in "${datasets[@]}"; do
 done
 
 
-# python Train_cifar_w_three_experts.py --dataset cifar10 --noise_ratio 0.2 --imb_factor 0.1 --warm_up 1 --num_epoch 2 --gpuid 5
+# python Train_cifar.py --dataset cifar10 --noise_ratio 0.2 --imb_factor 0.1 --warm_up 1 --num_epoch 2 --gpuid 5
