@@ -600,9 +600,9 @@ for epoch in range(start_epoch, args.num_epochs + 1):
         
         # Train networks
         train(epoch, net1, net2_clone, optimizer1, labeled_trainloader1, unlabeled_trainloader1, 
-              tmp_img_num_list2, cuda1, 'net1', head_nn_idx1, medium_nn_idx1, tail_nn_idx1)
+              tmp_img_num_list2, cuda1, 'net1', head_nn_idx2, medium_nn_idx2, tail_nn_idx2)
         train(epoch, net2, net1_clone, optimizer2, labeled_trainloader2, unlabeled_trainloader2, 
-              tmp_img_num_list1, cuda2, 'net2', head_nn_idx2, medium_nn_idx2, tail_nn_idx2)
+              tmp_img_num_list1, cuda2, 'net2', head_nn_idx1, medium_nn_idx1, tail_nn_idx1)
 
     # Synchronize clones
     net1_clone.load_state_dict(net1.state_dict())
