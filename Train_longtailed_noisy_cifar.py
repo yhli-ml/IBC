@@ -12,12 +12,9 @@ from PreResNet import *
 from KNNClassifier import KNNClassifier
 from sklearn.mixture import GaussianMixture
 import dataloader_cifar as dataloader
-import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import faiss
 from sklearn.metrics import silhouette_score
-from PIL import Image
-import torchvision.transforms as transforms
 import pandas as pd
 
 # Parse arguments
