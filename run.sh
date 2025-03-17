@@ -1,5 +1,5 @@
 #!/bin/bash
-Method="Train_cifar"
+Method="Train_longtail_cifar"
 datasets=("cifar10" "cifar100")
 noise_ratios=(0.2 0.5)
 imb_ratios=(0.005)
