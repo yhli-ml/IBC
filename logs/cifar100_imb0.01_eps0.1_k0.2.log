@@ -222,4 +222,4 @@ Many Shot Accuracy:  64.00%
 Medium Shot Accuracy:  29.20%
 Few Shot Accuracy:   0.73%
 Train Net
-cifar100:exp_0.01 | Epoch [ 32/200] Iter[  1/170]	 CE-loss: 0.84cifar100:exp_0.01 | Epoch [ 32/200] Iter[ 51/170]	 CE-loss: 0.78
+cifar100:exp_0.01 | Epoch [ 32/200] Iter[  1/170]	 CE-loss: 0.84cifar100:exp_0.01 | Epoch [ 32/200] Iter[ 51/170]	 CE-loss: 0.78cifar100:exp_0.01 | Epoch [ 32/200] Iter[101/170]	 CE-loss: 1.00cifar100:exp_0.01 | Epoch [ 32/200] Iter[151/170]	 CE-loss: 1.26

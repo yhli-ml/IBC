@@ -179,4 +179,11 @@ Many Shot Accuracy:  54.67%
 Medium Shot Accuracy:  42.88%
 Few Shot Accuracy:  27.33%
 Warmup Net
-cifar100:exp_0.1 | Epoch [ 26/200] Iter[  1/306]	 CE-loss: 1.1776cifar100:exp_0.1 | Epoch [ 26/200] Iter[ 51/306]	 CE-loss: 1.2141
+cifar100:exp_0.1 | Epoch [ 26/200] Iter[  1/306]	 CE-loss: 1.1776cifar100:exp_0.1 | Epoch [ 26/200] Iter[ 51/306]	 CE-loss: 1.2141cifar100:exp_0.1 | Epoch [ 26/200] Iter[101/306]	 CE-loss: 1.1791cifar100:exp_0.1 | Epoch [ 26/200] Iter[151/306]	 CE-loss: 1.2396cifar100:exp_0.1 | Epoch [ 26/200] Iter[201/306]	 CE-loss: 0.9447cifar100:exp_0.1 | Epoch [ 26/200] Iter[251/306]	 CE-loss: 1.1729cifar100:exp_0.1 | Epoch [ 26/200] Iter[301/306]	 CE-loss: 1.0910
+| Test Epoch #26	 Accuracy:  45.68%	 Best Acc:  46.68	 at Epoch 24.
+[91.0, 85.0, 50.0, 58.0, 42.0, 72.0, 68.0, 70.0, 59.0, 73.0, 36.0, 17.0, 40.0, 73.0, 44.0, 61.0, 72.0, 91.0, 51.0, 74.0, 72.0, 56.0, 62.0, 78.0, 60.0, 36.0, 31.0, 32.0, 77.0, 55.0, 38.0, 41.0, 46.0, 59.0, 40.0, 20.0, 83.0, 55.0, 49.0, 73.0, 39.0, 68.0, 71.0, 49.0, 4.0, 19.0, 40.0, 68.0, 91.0, 64.0, 10.0, 33.0, 45.0, 44.0, 73.0, 27.0, 50.0, 59.0, 17.0, 33.0, 73.0, 49.0, 19.0, 31.0, 42.0, 13.0, 51.0, 52.0, 70.0, 79.0, 54.0, 45.0, 0.0, 44.0, 16.0, 66.0, 39.0, 13.0, 24.0, 51.0, 18.0, 6.0, 75.0, 12.0, 13.0, 61.0, 21.0, 11.0, 19.0, 30.0, 63.0, 52.0, 2.0, 5.0, 68.0, 27.0, 24.0, 25.0, 4.0, 7.0]
+Many Shot Accuracy:  59.53%
+Medium Shot Accuracy:  47.17%
+Few Shot Accuracy:  29.83%
+Warmup Net
+cifar100:exp_0.1 | Epoch [ 27/200] Iter[  1/306]	 CE-loss: 0.8185cifar100:exp_0.1 | Epoch [ 27/200] Iter[ 51/306]	 CE-loss: 1.0154cifar100:exp_0.1 | Epoch [ 27/200] Iter[101/306]	 CE-loss: 0.9450cifar100:exp_0.1 | Epoch [ 27/200] Iter[151/306]	 CE-loss: 1.1076cifar100:exp_0.1 | Epoch [ 27/200] Iter[201/306]	 CE-loss: 1.3087cifar100:exp_0.1 | Epoch [ 27/200] Iter[251/306]	 CE-loss: 1.3258cifar100:exp_0.1 | Epoch [ 27/200] Iter[301/306]	 CE-loss: 0.9850
