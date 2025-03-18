@@ -76,12 +76,12 @@ def warmup(epoch, net, optimizer, dataloader):
         loss = CEloss(logits1, labels)
 
         logits2 = net.classify2(feats)
-        loss_BCE = balanced_softmax_loss(labels, logits2, torch.tensor(cls_num_list), "mean")
+        loss_BCE = balanced_softmax_loss(labels, logits2, torch.tensor(cls_num_list), "mean", tau=0.5)
 
         logits3 = net.classify3(feats)
-        loss_BCE_3 = balanced_softmax_loss(labels, logits3, torch.tensor(cls_num_list), "mean", tau=0.5)
+        loss_BCE_3 = balanced_softmax_loss(labels, logits3, torch.tensor(cls_num_list), "mean")
 
-        L = loss + loss_BCE
+        L = loss + loss_BCE + loss_BCE_3
         L.backward()
         optimizer.step()
 
@@ -143,8 +143,11 @@ def train(epoch, net, optimizer, trainloader, head_nearest_neighbors_idx, medium
         
         # Calculate losses for different classifiers
         loss_main = CEloss(logits, labels)
-        loss_BCE_tail = -torch.mean(torch.sum(F.log_softmax(logits2, dim=1) * targets_tl, dim=1))
-        loss_BCE_medium = -torch.mean(torch.sum(F.log_softmax(logits3, dim=1) * targets_md, dim=1))
+        spc = torch.tensor(cls_num_list).cuda()
+        adjusted_logits_medium = logits2 + 0.5 * spc.log()
+        adjusted_logits_tail = logits3 + 1 * spc.log()
+        loss_BCE_medium = -torch.mean(torch.sum(F.log_softmax(adjusted_logits_medium, dim=1) * targets_md, dim=1))
+        loss_BCE_tail = -torch.mean(torch.sum(F.log_softmax(adjusted_logits_tail, dim=1) * targets_tl, dim=1))
         
         # Regularization
         prior = torch.ones(args.num_class)/args.num_class
