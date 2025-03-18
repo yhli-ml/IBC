@@ -114,6 +114,7 @@ checkpoints/
 .idea/
 __MACOSX/
 
+/log
 /CAM
 /checkpoint
 /plots
