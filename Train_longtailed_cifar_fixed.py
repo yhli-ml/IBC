@@ -22,7 +22,7 @@ parser.add_argument('--num_epochs', default=200, type=int)
 parser.add_argument('--batch_size', default=64, type=int, help='train batchsize')
 parser.add_argument('--lr', '--learning_rate', default=0.02, type=float, help='initial learning rate')
 parser.add_argument('--gpuid', default=0, type=int, required=True)
-parser.add_argument('--seed', default=123)
+parser.add_argument('--seed', default=123, type=int)
 
 # model hyperparameters
 parser.add_argument('--arch', default='PreActResNet18', type=str, help='model architechture')
@@ -101,7 +101,7 @@ def train(epoch, net, optimizer, trainloader, head_nearest_neighbors_idx, medium
         batch_size = inputs.size(0)
         
         # Create one-hot encoding for labels
-        labels_one_hot = torch.zeros(batch_size, args.num_class, device=labels.device).scatter_(1, labels.view(-1,1), 1)
+        labels_one_hot = torch.zeros(batch_size, args.num_class).scatter_(1, labels.view(-1,1), 1).cuda()
         
         # Feature extraction
         feats, logits = net(inputs, return_features=True)
@@ -237,7 +237,7 @@ def test(epoch, net):
 # Feature extraction and nearest neighbors computation
 def compute_features_and_neighbors(model):
     model.eval()
-    total_features = torch.zeros((len(train_dataset), 64))  # 64 is feature dimension
+    total_features = torch.zeros((len(train_dataset), 512))  # 512 is feature dimension
     total_labels = torch.zeros(len(train_dataset)).long()
 
     with torch.no_grad():
@@ -256,7 +256,7 @@ def compute_features_and_neighbors(model):
         if len(idx) > 0:
             class_features.append(total_features[idx].mean(dim=0))
         else:
-            class_features.append(torch.zeros(64).cuda())
+            class_features.append(torch.zeros(512).cuda())
     
     class_features = torch.stack(class_features)
     
@@ -356,18 +356,16 @@ if os.path.isfile(args.pretrained):
 
     # Rename MoCo pre-trained keys
     state_dict = checkpoint['state_dict']
-    print(state_dict.keys())
     for k in list(state_dict.keys()):
         # Retain only encoder_q up to before the embedding layer
-        if k.startswith('module.encoder_q') and not k.startswith('module.encoder_q.fc'):
+        if k.startswith('encoder_q') and not k.startswith('encoder_q.fc'):
             # Remove prefix
-            state_dict[k[len("module.encoder_q."):]] = state_dict[k]
+            state_dict[k[len("encoder_q."):]] = state_dict[k]
         # Delete renamed or unused k
         del state_dict[k]
 
     args.start_epoch = 0
     msg = net.load_state_dict(state_dict, strict=False)
-    print("Actual missing keys:", msg.missing_keys)
     assert set(msg.missing_keys) == {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias", "linear3.weight", "linear3.bias"}
 
     print("=> loaded pre-trained model '{}'".format(args.pretrained))

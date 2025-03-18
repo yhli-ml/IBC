@@ -102,15 +102,18 @@ class cifar_longtailed_dataset(Dataset):
         return img_num_per_cls
 
     def gen_imbalanced_data(self, img_num_per_cls, imb_file):
+        # Initialize num_per_cls_dict regardless of whether we're loading saved indices or not
+        targets_np = np.array(self.targets, dtype=np.int64)
+        classes = np.unique(targets_np)
+        self.num_per_cls_dict = dict()
+        for the_class, the_img_num in zip(classes, img_num_per_cls):
+            self.num_per_cls_dict[the_class] = the_img_num
+            
         if os.path.exists(imb_file):
             imb_sample = json.load(open(imb_file,"r"))
         else:
             imb_sample = []
-            targets_np = np.array(self.targets, dtype=np.int64)
-            classes = np.unique(targets_np)
-            self.num_per_cls_dict = dict()
             for the_class, the_img_num in zip(classes, img_num_per_cls):
-                self.num_per_cls_dict[the_class] = the_img_num
                 idx = np.where(targets_np == the_class)[0]
                 np.random.shuffle(idx)
                 selec_idx = idx[:the_img_num]
