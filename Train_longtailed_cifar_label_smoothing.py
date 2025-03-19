@@ -133,7 +133,7 @@ def train(epoch, net, optimizer, trainloader, head_nearest_neighbors_idx, medium
         logits3 = net.classify3(feats)  # Medium expert
         
         # Create smooth labels for all experts
-        smooth_labels = create_smooth_labels(labels, args.num_class, args.smoothing)
+        smooth_labels = create_smooth_labels(labels, args.num_class)
         
         # Calculate loss for main classifier using standard cross-entropy with smooth labels
         loss_main = -torch.mean(torch.sum(F.log_softmax(logits, dim=1) * smooth_labels, dim=1))
