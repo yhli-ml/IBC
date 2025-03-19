@@ -2,7 +2,7 @@
 
 # Bash script to run long-tailed CIFAR experiments with IBC method
 # Usage: bash run_longtailed_experiments.sh
-
+running_script="Train_longtailed_cifar"
 # Create necessary directories
 mkdir -p ./checkpoint
 mkdir -p ./saved
@@ -42,7 +42,7 @@ do
     fi
     
     # Construct log file name
-    log_file="logs/${dataset}_imb${imb_factor}_eps${epsilon}_k${k}.log"
+    log_file="logs/${running_script}/${dataset}_imb${imb_factor}_eps${epsilon}_k${k}.log"
     
     # Create logs directory if it doesn't exist
     mkdir -p logs
@@ -57,9 +57,9 @@ do
     echo "Log file: $log_file"
     
     # Run the experiment
-    echo "Running python Train_longtailed_cifar.py --dataset $dataset --imb_factor $imb_factor --epsilon $epsilon --k $k --gpuid $gpuid --batch_size $batch_size --num_class $num_class $common_args"
+    echo "Running python ${running_script}.py --dataset $dataset --imb_factor $imb_factor --epsilon $epsilon --k $k --gpuid $gpuid --batch_size $batch_size --num_class $num_class $common_args"
     
-    nohup python Train_longtailed_cifar.py \
+    nohup python $running_script.py \
         --dataset $dataset \
         --imb_factor $imb_factor \
         --epsilon $epsilon \
