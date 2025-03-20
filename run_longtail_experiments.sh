@@ -14,8 +14,8 @@ common_args="--num_epochs 200 --warm_up 30 --arch resnet32"
 # Format: "dataset imb_factor epsilon k gpuid"
 declare -a experiments=(
     # CIFAR-100 experiments with different imbalance factors
-    "cifar100 0.1 0.1 0.2 0"    # Imbalance ratio 1:10
-    "cifar100 0.01 0.1 0.2 1"   # Imbalance ratio 1:50
+    "cifar100 0.1 0.1 0.2 2"    # Imbalance ratio 1:10
+    "cifar100 0.01 0.1 0.2 2"   # Imbalance ratio 1:50
 )
 
 # Run each experiment
@@ -41,8 +41,9 @@ do
         num_class=10
     fi
     
+    timestamp=$(date +"%Y-%m-%d_%H%M%S")
     # Construct log file name
-    log_file="logs/${running_script}/${dataset}_imb${imb_factor}_eps${epsilon}_k${k}.log"
+    log_file="logs/${running_script}/${dataset}_imb${imb_factor}_eps${epsilon}_k${k}_${timestamp}.log"
     
     # Create logs directory if it doesn't exist
     mkdir -p "$(dirname "$log_file")"

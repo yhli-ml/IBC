@@ -55,7 +55,7 @@ parser.add_argument('--tau_medium', default=0.5, type=float, help='tau for mediu
 parser.add_argument('--max_smoothing', default=0.2, type=float, help='maximum semantic smoothing value')
 parser.add_argument('--min_smoothing', default=0.05, type=float, help='minimum semantic smoothing value')
 parser.add_argument('--similarity_temp', default=0.5, type=float, help='temperature for similarity calculation')
-parser.add_argument('--update_freq', default=5, type=int, help='update frequency for class prototypes')
+parser.add_argument('--update_freq', default=1, type=int, help='update frequency for class prototypes')
 
 file_name = os.path.splitext(os.path.basename(__file__))[0]
 args = parser.parse_args()
@@ -151,13 +151,14 @@ class SemanticLabelSmoothing:
             
         return True
     
-    def __call__(self, labels, num_classes, smoothing=None):
+    def __call__(self, labels, num_classes, class_types, smoothing=None):
         """
         Create semantic smooth labels based on class similarity.
         
         Args:
             labels: True labels (batch_size)
             num_classes: Number of classes
+            class_types: Tensor indicating class type for each instance (0=head, 1=medium, 2=tail)
             smoothing: Override smoothing factor (optional)
             
         Returns:
@@ -180,13 +181,24 @@ class SemanticLabelSmoothing:
         
         # For each instance, get its similarity vector based on its class
         smooth_labels = torch.zeros_like(one_hot)
-        for i, label in enumerate(labels):
+        for i, (label, class_type) in enumerate(zip(labels, class_types)):
+            # Apply selective smoothing based on class type
+            # 0=head, 1=medium, 2=tail
+            if class_type == 0:  # Head class - apply full smoothing
+                smoothing_factor = current_smoothing
+            elif class_type == 1:  # Medium class - apply reduced smoothing
+                smoothing_factor = current_smoothing * 0.5
+            else:  # Tail class - no smoothing
+                smoothing_factor = 0.0
+                
             # Keep most of the probability on the true class
-            class_distribution = (1 - current_smoothing) * one_hot[i]
+            class_distribution = (1 - smoothing_factor) * one_hot[i]
             
-            # Distribute remaining probability according to class similarity
-            similarity_vector = self.similarity_matrix[label]
-            class_distribution += current_smoothing * similarity_vector
+            # Only distribute probability if there's any smoothing
+            if smoothing_factor > 0:
+                # Distribute remaining probability according to class similarity
+                similarity_vector = self.similarity_matrix[label]
+                class_distribution += smoothing_factor * similarity_vector
             
             smooth_labels[i] = class_distribution
             
@@ -253,6 +265,29 @@ def warmup(epoch, net, optimizer, dataloader):
                     %(args.dataset, args.imb_type, args.imb_factor, epoch, args.num_epochs, batch_idx+1, num_iter, loss.item()))
             sys.stdout.flush()
 
+def get_class_types(labels, many_shot_classes, medium_shot_classes, few_shot_classes):
+    """
+    Determines the class type for each instance in the batch.
+    
+    Args:
+        labels: Class labels for the batch
+        many_shot_classes: Set of head class indices
+        medium_shot_classes: Set of medium class indices
+        few_shot_classes: Set of tail class indices
+        
+    Returns:
+        class_types: Tensor with 0=head, 1=medium, 2=tail for each instance
+    """
+    class_types = torch.zeros_like(labels)
+    for i, label in enumerate(labels):
+        if label.item() in many_shot_classes:
+            class_types[i] = 0  # Head class
+        elif label.item() in medium_shot_classes:
+            class_types[i] = 1  # Medium class
+        else:  # label.item() in few_shot_classes
+            class_types[i] = 2  # Tail class
+    return class_types
+
 # Training function with semantic label smoothing
 def train(epoch, net, optimizer, trainloader, semantic_smoother):
     net.train()
@@ -281,13 +316,16 @@ def train(epoch, net, optimizer, trainloader, semantic_smoother):
         logits2 = net.classify2(feats)  # Tail expert
         logits3 = net.classify3(feats)  # Medium expert
         
+        # Determine class types for each instance in the batch
+        class_types = get_class_types(labels, many_shot_classes, medium_shot_classes, few_shot_classes)
+        
         # Create labels based on current stage
         if epoch <= args.warm_up:
             # Use standard label smoothing during warmup
             smooth_labels = create_smooth_labels(labels, args.num_class, smoothing=0.1)
         else:
-            # Use semantic label smoothing after warmup
-            smooth_labels = semantic_smoother(labels, args.num_class, smoothing=current_smoothing)
+            # Use semantic label smoothing after warmup with selective application
+            smooth_labels = semantic_smoother(labels, args.num_class, class_types, smoothing=current_smoothing)
         
         # Calculate loss for main classifier using smooth labels
         loss_main = -torch.mean(torch.sum(F.log_softmax(logits, dim=1) * smooth_labels, dim=1))
@@ -295,13 +333,13 @@ def train(epoch, net, optimizer, trainloader, semantic_smoother):
         # Apply logit adjustment for tail classifier
         spc_tail = torch.tensor(cls_num_list).cuda().type_as(logits2)
         spc_tail = spc_tail.unsqueeze(0).expand(logits2.shape[0], -1)
-        adjusted_logits_tail = logits2 + args.tau_tail * spc_tail.log()
+        adjusted_logits_tail = logits2 + args.tau_tail * (spc_tail + 1e-6).log()
         loss_tail = -torch.mean(torch.sum(F.log_softmax(adjusted_logits_tail, dim=1) * smooth_labels, dim=1))
         
         # Apply logit adjustment for medium classifier
         spc_medium = torch.tensor(cls_num_list).cuda().type_as(logits3)
         spc_medium = spc_medium.unsqueeze(0).expand(logits3.shape[0], -1)
-        adjusted_logits_medium = logits3 + args.tau_medium * spc_medium.log()
+        adjusted_logits_medium = logits3 + args.tau_medium * (spc_medium + 1e-6).log()
         loss_medium = -torch.mean(torch.sum(F.log_softmax(adjusted_logits_medium, dim=1) * smooth_labels, dim=1))
         
         # Regularization
@@ -319,10 +357,16 @@ def train(epoch, net, optimizer, trainloader, semantic_smoother):
         optimizer.step()
         
         if batch_idx%50==0:
+            # Count instances by class type
+            head_count = (class_types == 0).sum().item()
+            medium_count = (class_types == 1).sum().item()
+            tail_count = (class_types == 2).sum().item()
+            
             sys.stdout.write('\r')
-            sys.stdout.write('%s:%s_%g | Epoch [%3d/%3d] Iter[%3d/%3d]\t CE-loss: %.2f, Tail-loss: %.2f, Medium-loss: %.2f, Smoothing: %.3f'
+            sys.stdout.write('%s:%s_%g | Epoch [%3d/%3d] Iter[%3d/%3d]\t CE-loss: %.2f, Tail-loss: %.2f, Medium-loss: %.2f, Smoothing: %.3f (H:%d,M:%d,T:%d)'
                     %(args.dataset, args.imb_type, args.imb_factor, epoch, args.num_epochs, batch_idx+1, num_iter, 
-                      loss_main.item(), loss_tail.item(), loss_medium.item(), current_smoothing))
+                      loss_main.item(), loss_tail.item(), loss_medium.item(), current_smoothing,
+                      head_count, medium_count, tail_count))
             sys.stdout.flush()
 
 def test(epoch, net):
@@ -405,7 +449,6 @@ def balanced_softmax_loss(labels, logits, sample_per_class, reduction, tau=1.0):
     logits = logits + tau * spc.log()
     loss = F.cross_entropy(input=logits, target=labels, reduction=reduction)
     return loss
-
 
 # Initialize the warm_up period
 warm_up = args.warm_up if args.warm_up is not None else 30
