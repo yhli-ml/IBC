@@ -202,8 +202,8 @@ class InstancePrototypeLabelSmoothing:
             # 0=head, 1=medium, 2=tail
             if class_type == 0:  # Head class - apply full smoothing
                 smoothing_factor = current_smoothing
-            elif class_type == 1:  # Medium class - apply reduced smoothing
-                smoothing_factor = current_smoothing * 0.5
+            # elif class_type == 1:  # Medium class - apply reduced smoothing
+            #     smoothing_factor = current_smoothing * 0.5
             else:  # Tail class - no smoothing
                 smoothing_factor = 0.0
                 
