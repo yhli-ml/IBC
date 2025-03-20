@@ -31,7 +31,7 @@ parser.add_argument('--gpuid', default=0, type=int, required=True)
 parser.add_argument('--seed', default=123)
 
 # model hyperparameters
-parser.add_argument('--arch', default='resnet18', type=str, help='model architechture')
+parser.add_argument('--arch', default='resnet32', type=str, help='model architechture')
 parser.add_argument('-r', '--resume', default=None, type=int)
 
 # dataset hyperparameters
@@ -52,12 +52,145 @@ parser.add_argument('--phi', default=1.005, type=float, help='parameter for dyna
 parser.add_argument('--sample_rate', default=5, type=int, help='sampling rate of SFA')
 parser.add_argument('--tau_tail', default=1.0, type=float, help='tau for tail expert in balanced softmax')
 parser.add_argument('--tau_medium', default=0.5, type=float, help='tau for medium expert in balanced softmax')
+parser.add_argument('--max_smoothing', default=0.2, type=float, help='maximum semantic smoothing value')
+parser.add_argument('--min_smoothing', default=0.05, type=float, help='minimum semantic smoothing value')
+parser.add_argument('--similarity_temp', default=0.5, type=float, help='temperature for similarity calculation')
+parser.add_argument('--update_freq', default=5, type=int, help='update frequency for class prototypes')
 
 file_name = os.path.splitext(os.path.basename(__file__))[0]
 args = parser.parse_args()
 args.pretrained=f"../moco_ckpt/{args.arch}/{args.dataset}_exp_{args.imb_factor}/checkpoint_2000.pth.tar"
 
 print(args)
+
+class SemanticLabelSmoothing:
+    def __init__(self, num_classes, max_smoothing=0.2, min_smoothing=0.05, similarity_temp=0.5, update_freq=5):
+        """
+        Semantic Label Smoothing based on feature-space similarity.
+        
+        Args:
+            num_classes: Number of classes in the dataset
+            max_smoothing: Maximum probability mass to redistribute
+            min_smoothing: Minimum probability mass to redistribute 
+            similarity_temp: Temperature for similarity distribution (lower = sharper)
+            update_freq: How often to update class prototypes (in epochs)
+        """
+        self.num_classes = num_classes
+        self.max_smoothing = max_smoothing
+        self.min_smoothing = min_smoothing
+        self.temperature = similarity_temp
+        self.update_freq = update_freq
+        
+        # Initialize class prototypes and similarity matrix
+        self.class_prototypes = None
+        self.similarity_matrix = torch.eye(num_classes).cuda()  # Start with identity matrix
+        self.last_update_epoch = 0
+        
+        print(f"Initialized Semantic Label Smoothing with max_smoothing={max_smoothing}, "
+              f"min_smoothing={min_smoothing}, similarity_temp={similarity_temp}")
+    
+    def update_class_prototypes(self, model, dataloader, current_epoch):
+        """
+        Update class prototypes based on current model embeddings.
+        """
+        if current_epoch - self.last_update_epoch < self.update_freq:
+            return False  # Skip if not time to update yet
+            
+        print(f"Updating class prototypes for semantic label smoothing at epoch {current_epoch}...")
+        model.eval()
+        
+        # Initialize accumulators for features and counts per class
+        total_features = [[] for _ in range(self.num_classes)]
+        
+        with torch.no_grad():
+            for inputs, targets, _ in dataloader:
+                inputs, targets = inputs.cuda(), targets.cuda()
+                features, _ = model(inputs, return_features=True)
+                
+                # Normalize features for cosine similarity
+                features = F.normalize(features, p=2, dim=1)
+                
+                # Group features by class
+                for i, target in enumerate(targets):
+                    total_features[target.item()].append(features[i].detach().cpu())
+        
+        # Compute prototype (mean) for each class
+        class_prototypes = []
+        for class_idx in range(self.num_classes):
+            if total_features[class_idx]:
+                class_prototype = torch.stack(total_features[class_idx]).mean(0)
+                class_prototypes.append(F.normalize(class_prototype, p=2, dim=0))
+            else:
+                # Handle empty classes (shouldn't happen with CIFAR)
+                class_prototypes.append(torch.zeros(features.shape[1]))
+        
+        self.class_prototypes = torch.stack(class_prototypes)
+        
+        # Compute pairwise cosine similarity between class prototypes
+        similarity_matrix = torch.mm(self.class_prototypes, self.class_prototypes.t())
+        
+        # Apply temperature scaling and zero out self-similarity
+        similarity_matrix = similarity_matrix / self.temperature
+        similarity_matrix.fill_diagonal_(0)  # Zero out self-similarity
+        
+        # Convert to probabilities (softmax per row)
+        similarity_matrix = F.softmax(similarity_matrix, dim=1)
+        
+        self.similarity_matrix = similarity_matrix.cuda()
+        self.last_update_epoch = current_epoch
+        
+        # Debugging info
+        top_similarities = []
+        for i in range(self.num_classes):
+            sim_vals, sim_indices = torch.topk(similarity_matrix[i], 3)
+            top_similarities.append((i, [(sim_indices[j].item(), sim_vals[j].item()) for j in range(len(sim_indices))]))
+        
+        print("Sample class similarities (class_id -> [(similar_class, similarity_score), ...]):")
+        for i, sims in random.sample(top_similarities, min(5, len(top_similarities))):
+            print(f"  Class {i}: {sims}")
+            
+        return True
+    
+    def __call__(self, labels, num_classes, smoothing=None):
+        """
+        Create semantic smooth labels based on class similarity.
+        
+        Args:
+            labels: True labels (batch_size)
+            num_classes: Number of classes
+            smoothing: Override smoothing factor (optional)
+            
+        Returns:
+            smooth_labels: Semantically smoothed targets (batch_size, num_classes)
+        """
+        batch_size = labels.size(0)
+        
+        # If smoothing is 0, return one-hot labels
+        if smoothing == 0:
+            one_hot = torch.zeros(batch_size, num_classes, device=labels.device)
+            one_hot.scatter_(1, labels.unsqueeze(1), 1)
+            return one_hot
+        
+        # Use provided smoothing value or max smoothing
+        current_smoothing = self.max_smoothing if smoothing is None else smoothing
+        
+        # Create standard one-hot labels
+        one_hot = torch.zeros(batch_size, num_classes, device=labels.device)
+        one_hot.scatter_(1, labels.unsqueeze(1), 1)
+        
+        # For each instance, get its similarity vector based on its class
+        smooth_labels = torch.zeros_like(one_hot)
+        for i, label in enumerate(labels):
+            # Keep most of the probability on the true class
+            class_distribution = (1 - current_smoothing) * one_hot[i]
+            
+            # Distribute remaining probability according to class similarity
+            similarity_vector = self.similarity_matrix[label]
+            class_distribution += current_smoothing * similarity_vector
+            
+            smooth_labels[i] = class_distribution
+            
+        return smooth_labels
 
 def set_seed():
     torch.cuda.set_device(args.gpuid)
@@ -73,7 +206,25 @@ def set_seed():
     
 set_seed()
 
-# Warm Up
+# Create standard label smoothing targets
+def create_smooth_labels(labels, num_classes, smoothing=0.1):
+    """
+    Creates soft targets for standard label smoothing.
+    Args:
+        labels: True labels (batch_size)
+        num_classes: Number of classes
+        smoothing: Label smoothing parameter (0 means no smoothing)
+    Returns:
+        smooth_labels: Soft targets (batch_size, num_classes)
+    """
+    batch_size = labels.size(0)
+    smooth_labels = torch.full(size=(batch_size, num_classes), 
+                               fill_value=smoothing / (num_classes - 1),
+                               device=labels.device)
+    smooth_labels.scatter_(dim=1, index=labels.unsqueeze(1), value=1.0 - smoothing)
+    return smooth_labels
+
+# Warm Up with standard label smoothing
 def warmup(epoch, net, optimizer, dataloader):
     net.train()
     num_iter = (len(dataloader.dataset)//dataloader.batch_size)+1
@@ -81,7 +232,10 @@ def warmup(epoch, net, optimizer, dataloader):
         inputs, labels = inputs.cuda(), labels.cuda()
         optimizer.zero_grad()
         feats, logits1 = net(inputs, return_features=True)
-        loss = CEloss(logits1, labels)
+        
+        # Using standard label smoothing during warmup
+        smooth_labels = create_smooth_labels(labels, args.num_class, smoothing=0.1)
+        loss = -torch.mean(torch.sum(F.log_softmax(logits1, dim=1) * smooth_labels, dim=1))
 
         logits2 = net.classify2(feats)
         loss_BCE = balanced_softmax_loss(labels, logits2, torch.tensor(cls_num_list), "mean")
@@ -99,28 +253,22 @@ def warmup(epoch, net, optimizer, dataloader):
                     %(args.dataset, args.imb_type, args.imb_factor, epoch, args.num_epochs, batch_idx+1, num_iter, loss.item()))
             sys.stdout.flush()
 
-# Create label smoothing targets
-def create_smooth_labels(labels, num_classes, smoothing=0.1):
-    """
-    Creates soft targets for label smoothing.
-    Args:
-        labels: True labels (batch_size)
-        num_classes: Number of classes
-        smoothing: Label smoothing parameter (0 means no smoothing)
-    Returns:
-        smooth_labels: Soft targets (batch_size, num_classes)
-    """
-    batch_size = labels.size(0)
-    smooth_labels = torch.full(size=(batch_size, num_classes), 
-                               fill_value=smoothing / (num_classes - 1),
-                               device=labels.device)
-    smooth_labels.scatter_(dim=1, index=labels.unsqueeze(1), value=1.0 - smoothing)
-    return smooth_labels
-
-# Modified Training function with hard labels for all experts
-def train(epoch, net, optimizer, trainloader, head_nearest_neighbors_idx, medium_nearest_neighbors_idx, tail_nearest_neighbors_idx):
+# Training function with semantic label smoothing
+def train(epoch, net, optimizer, trainloader, semantic_smoother):
     net.train()
     num_iter = (len(trainloader.dataset)//args.batch_size)+1
+    
+    # Calculate current smoothing value - gradually increase after warmup
+    if epoch <= args.warm_up:
+        current_smoothing = 0.0  # No semantic smoothing during warmup
+    else:
+        # Linearly increase from min_smoothing to max_smoothing over 70 epochs after warmup
+        progress = min(1.0, (epoch - args.warm_up) / 70.0)
+        current_smoothing = args.min_smoothing + progress * (args.max_smoothing - args.min_smoothing)
+    
+    # Update class prototypes if using semantic smoothing
+    if epoch > args.warm_up:
+        semantic_smoother.update_class_prototypes(net, trainloader, epoch)
     
     for batch_idx, (inputs, labels, index) in enumerate(trainloader):
         inputs, labels = inputs.cuda(), labels.cuda()
@@ -133,10 +281,15 @@ def train(epoch, net, optimizer, trainloader, head_nearest_neighbors_idx, medium
         logits2 = net.classify2(feats)  # Tail expert
         logits3 = net.classify3(feats)  # Medium expert
         
-        # Create smooth labels for all experts
-        smooth_labels = create_smooth_labels(labels, args.num_class)
+        # Create labels based on current stage
+        if epoch <= args.warm_up:
+            # Use standard label smoothing during warmup
+            smooth_labels = create_smooth_labels(labels, args.num_class, smoothing=0.1)
+        else:
+            # Use semantic label smoothing after warmup
+            smooth_labels = semantic_smoother(labels, args.num_class, smoothing=current_smoothing)
         
-        # Calculate loss for main classifier using standard cross-entropy with smooth labels
+        # Calculate loss for main classifier using smooth labels
         loss_main = -torch.mean(torch.sum(F.log_softmax(logits, dim=1) * smooth_labels, dim=1))
         
         # Apply logit adjustment for tail classifier
@@ -167,11 +320,10 @@ def train(epoch, net, optimizer, trainloader, head_nearest_neighbors_idx, medium
         
         if batch_idx%50==0:
             sys.stdout.write('\r')
-            sys.stdout.write('%s:%s_%g | Epoch [%3d/%3d] Iter[%3d/%3d]\t CE-loss: %.2f, Tail-loss: %.2f, Medium-loss: %.2f'
+            sys.stdout.write('%s:%s_%g | Epoch [%3d/%3d] Iter[%3d/%3d]\t CE-loss: %.2f, Tail-loss: %.2f, Medium-loss: %.2f, Smoothing: %.3f'
                     %(args.dataset, args.imb_type, args.imb_factor, epoch, args.num_epochs, batch_idx+1, num_iter, 
-                      loss_main.item(), loss_tail.item(), loss_medium.item()))
+                      loss_main.item(), loss_tail.item(), loss_medium.item(), current_smoothing))
             sys.stdout.flush()
-
 
 def test(epoch, net):
     net.eval()
@@ -239,67 +391,6 @@ def test(epoch, net):
 
     return result_dict
 
-
-# Feature extraction and nearest neighbors computation
-def compute_features_and_neighbors(model):
-    model.eval()
-    total_features = torch.zeros((len(train_dataset), 64))  # 64 is feature dimension
-    total_labels = torch.zeros(len(train_dataset)).long()
-
-    with torch.no_grad():
-        for batch_idx, (inputs, targets, index) in enumerate(train_loader):
-            inputs, targets = inputs.cuda(), targets.cuda()
-            feats, _ = model(inputs, return_features=True)
-            
-            for i, idx in enumerate(index):
-                total_features[idx] = feats[i]
-                total_labels[idx] = targets[i]
-
-    # Compute class centers
-    class_features = []
-    for c in range(args.num_class):
-        idx = (total_labels == c).nonzero(as_tuple=True)[0]
-        if len(idx) > 0:
-            class_features.append(total_features[idx].mean(dim=0))
-        else:
-            class_features.append(torch.zeros(64).cuda())
-    
-    class_features = torch.stack(class_features)
-    
-    # Find k nearest neighbors for each sample
-    k = int(args.num_class * args.k)
-    total_features_np = total_features.cpu().numpy()
-    class_features_np = class_features.cpu().numpy()
-    
-    # Normalize features for cosine similarity
-    total_features_np = total_features_np / np.linalg.norm(total_features_np, axis=1, keepdims=True)
-    class_features_np = class_features_np / np.linalg.norm(class_features_np, axis=1, keepdims=True)
-    
-    # Use FAISS for efficient nearest neighbors search
-    index = faiss.IndexFlatIP(class_features_np.shape[1])
-    index.add(class_features_np)
-    _, nearest_neighbors_idx = index.search(total_features_np, k)
-    
-    # Generate specific nearest neighbors for head, medium, tail
-    head_nearest_neighbors_idx = []
-    medium_nearest_neighbors_idx = []
-    tail_nearest_neighbors_idx = []
-
-    for i in range(nearest_neighbors_idx.shape[0]):
-        current_neighbors = nearest_neighbors_idx[i]
-        
-        # Filter neighbors by category
-        head_neighbors = [label for label in current_neighbors if label in many_shot_classes]
-        medium_neighbors = [label for label in current_neighbors if label in medium_shot_classes]
-        tail_neighbors = [label for label in current_neighbors if label in few_shot_classes]
-
-        head_nearest_neighbors_idx.append(head_neighbors[:k])
-        medium_nearest_neighbors_idx.append(medium_neighbors[:k])
-        tail_nearest_neighbors_idx.append(tail_neighbors[:k])
-    
-    return np.array(head_nearest_neighbors_idx, dtype=object), np.array(medium_nearest_neighbors_idx, dtype=object), np.array(tail_nearest_neighbors_idx, dtype=object)
-
-
 def create_model():
     if args.arch == 'PreActResNet18':
         model = PreActResNet18_3(num_classes=args.num_class)
@@ -340,6 +431,15 @@ train_loader, cls_num_list = loader.run('train')
 train_dataset = train_loader.dataset
 test_loader = loader.run('test')
 
+# Initialize semantic label smoothing
+semantic_smoother = SemanticLabelSmoothing(
+    num_classes=args.num_class,
+    max_smoothing=args.max_smoothing,
+    min_smoothing=args.min_smoothing,
+    similarity_temp=args.similarity_temp,
+    update_freq=args.update_freq
+)
+
 # Identify many, medium, and few shot classes based on class distribution
 sorted_class_counts = sorted(enumerate(cls_num_list), key=lambda x: x[1], reverse=True)
 total_classes = len(cls_num_list)
@@ -350,6 +450,10 @@ sorted_classes = [class_idx for class_idx, _ in sorted_class_counts]
 many_shot_classes = set(sorted_classes[:top_30_percent])
 few_shot_classes = set(sorted_classes[-bottom_30_percent:])
 medium_shot_classes = set(sorted_classes[top_30_percent: -bottom_30_percent])
+
+print(f"Many shot classes: {many_shot_classes}")
+print(f"Medium shot classes: {medium_shot_classes}")
+print(f"Few shot classes: {few_shot_classes}")
 
 # Create and initialize the model
 net = create_model()
@@ -432,9 +536,6 @@ best_acc = 0
 best_epoch = 0
 best_model = None
 
-# Compute initial nearest neighbors
-head_nearest_neighbors_idx, medium_nearest_neighbors_idx, tail_nearest_neighbors_idx = compute_features_and_neighbors(net)
-
 for epoch in range(start_epoch, args.num_epochs + 1):   
     # Learning rate schedule
     lr = args.lr
@@ -448,8 +549,8 @@ for epoch in range(start_epoch, args.num_epochs + 1):
         print('Warmup Net')
         warmup(epoch, net, optimizer, train_loader)
     else:
-        print('Train Net')
-        train(epoch, net, optimizer, train_loader, head_nearest_neighbors_idx, medium_nearest_neighbors_idx, tail_nearest_neighbors_idx)
+        print('Train Net with Semantic Label Smoothing')
+        train(epoch, net, optimizer, train_loader, semantic_smoother)
     
     # Test phase
     acc_dict = test(epoch, net)
@@ -469,7 +570,7 @@ for epoch in range(start_epoch, args.num_epochs + 1):
     
     # Print results
     print(f"\n| Test Epoch #{epoch}\t Accuracy: {test_acc:6.2f}%\t Best Acc: {best_acc:6.2f}\t at Epoch {best_epoch}.")
-    print(acc_dict['class_accuracy'])
+    print(f"Class Accuracies: {acc_dict['class_accuracy']}")
     print(f"Many Shot Accuracy: {acc_dict['many_shot_accuracy']:6.2f}%")
     print(f"Medium Shot Accuracy: {acc_dict['medium_shot_accuracy']:6.2f}%")
     print(f"Few Shot Accuracy: {acc_dict['few_shot_accuracy']:6.2f}%")
@@ -484,10 +585,6 @@ for epoch in range(start_epoch, args.num_epochs + 1):
             'optimizer': optimizer.state_dict()
         }
         torch.save(ckpt, save_name)
-    
-    # Recompute nearest neighbors every 10 epochs
-    if epoch % 10 == 0:
-        head_nearest_neighbors_idx, medium_nearest_neighbors_idx, tail_nearest_neighbors_idx = compute_features_and_neighbors(net)
 
 # Save final accuracy results
 df = pd.DataFrame(acc_list)

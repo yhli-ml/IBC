@@ -352,30 +352,54 @@ medium_shot_classes = set(sorted_classes[top_30_percent: -bottom_30_percent])
 net = create_model()
 cudnn.benchmark = True
 
-# Load MoCo pre-trained weights if available
-if os.path.isfile(args.pretrained):
-    print("=> loading checkpoint '{}'".format(args.pretrained))
-    checkpoint = torch.load(args.pretrained, map_location="cpu")
+if args.arch == "resnet32":
+    # Load MoCo pre-trained weights if available
+    if os.path.isfile(args.pretrained):
+        print("=> loading checkpoint '{}'".format(args.pretrained))
+        checkpoint = torch.load(args.pretrained, map_location="cpu")
 
-    # Rename MoCo pre-trained keys
-    state_dict = checkpoint['state_dict']
-    print(state_dict.keys())
-    for k in list(state_dict.keys()):
-        # Retain only encoder_q up to before the embedding layer
-        if k.startswith('module.encoder_q') and not k.startswith('module.encoder_q.fc'):
-            # Remove prefix
-            state_dict[k[len("module.encoder_q."):]] = state_dict[k]
-        # Delete renamed or unused k
-        del state_dict[k]
+        # Rename MoCo pre-trained keys
+        state_dict = checkpoint['state_dict']
+        print(state_dict.keys())
+        for k in list(state_dict.keys()):
+            # Retain only encoder_q up to before the embedding layer
+            if k.startswith('module.encoder_q') and not k.startswith('module.encoder_q.fc'):
+                # Remove prefix
+                state_dict[k[len("module.encoder_q."):]] = state_dict[k]
+            # Delete renamed or unused k
+            del state_dict[k]
 
-    args.start_epoch = 0
-    msg = net.load_state_dict(state_dict, strict=False)
-    print("Actual missing keys:", msg.missing_keys)
-    assert set(msg.missing_keys) == {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias", "linear3.weight", "linear3.bias"}
+        args.start_epoch = 0
+        msg = net.load_state_dict(state_dict, strict=False)
+        print("Actual missing keys:", msg.missing_keys)
+        assert set(msg.missing_keys) == {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias", "linear3.weight", "linear3.bias"}
 
-    print("=> loaded pre-trained model '{}'".format(args.pretrained))
+        print("=> loaded pre-trained model '{}'".format(args.pretrained))
+    else:
+        print("=> no checkpoint found at '{}'".format(args.pretrained))
 else:
-    print("=> no checkpoint found at '{}'".format(args.pretrained))
+    # Load MoCo pre-trained weights if available
+    if os.path.isfile(args.pretrained):
+        print("=> loading checkpoint '{}'".format(args.pretrained))
+        checkpoint = torch.load(args.pretrained, map_location="cpu")
+
+        # Rename MoCo pre-trained keys
+        state_dict = checkpoint['state_dict']
+        for k in list(state_dict.keys()):
+            # Retain only encoder_q up to before the embedding layer
+            if k.startswith('encoder_q') and not k.startswith('encoder_q.fc'):
+                # Remove prefix
+                state_dict[k[len("encoder_q."):]] = state_dict[k]
+            # Delete renamed or unused k
+            del state_dict[k]
+
+        args.start_epoch = 0
+        msg = net.load_state_dict(state_dict, strict=False)
+        assert set(msg.missing_keys) == {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias", "linear3.weight", "linear3.bias"}
+
+        print("=> loaded pre-trained model '{}'".format(args.pretrained))
+    else:
+        print("=> no checkpoint found at '{}'".format(args.pretrained))
 
 # Set up optimizer
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)

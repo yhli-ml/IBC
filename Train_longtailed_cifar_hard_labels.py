@@ -19,6 +19,7 @@ from PIL import Image
 import cv2
 import torchvision.transforms as transforms
 import pandas as pd
+from resnet import resnet32
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR Training for Long-tailed Distribution')
 # training hyperparameters
@@ -30,8 +31,9 @@ parser.add_argument('--gpuid', default=0, type=int, required=True)
 parser.add_argument('--seed', default=123)
 
 # model hyperparameters
-parser.add_argument('--arch', default='resnet18', type=str, help='model architechture')
+parser.add_argument('--arch', default='resnet32', type=str, help='model architechture')
 parser.add_argument('-r', '--resume', default=None, type=int)
+parser.add_argument('--feature_dim', default=64, type=int, help='feature dimension')
 
 # dataset hyperparameters
 parser.add_argument('--data_path', default='/nas/datasets', type=str, help='path to dataset')
@@ -54,7 +56,7 @@ parser.add_argument('--tau_medium', default=0.5, type=float, help='tau for mediu
 
 file_name = os.path.splitext(os.path.basename(__file__))[0]
 args = parser.parse_args()
-args.pretrained=f"../moco_ckpt/PreActResNet18/{args.dataset}_exp_{args.imb_factor}/checkpoint_2000.pth.tar"
+args.pretrained=f"../moco_ckpt/{args.arch}/{args.dataset}_exp_{args.imb_factor}/checkpoint_2000.pth.tar"
 
 print(args)
 
@@ -227,7 +229,7 @@ def test(epoch, net):
 # Feature extraction and nearest neighbors computation
 def compute_features_and_neighbors(model):
     model.eval()
-    total_features = torch.zeros((len(train_dataset), 512))  # 512 is feature dimension
+    total_features = torch.zeros((len(train_dataset), args.feature_dim))  # 64 is feature dimension
     total_labels = torch.zeros(len(train_dataset)).long()
 
     with torch.no_grad():
@@ -246,7 +248,7 @@ def compute_features_and_neighbors(model):
         if len(idx) > 0:
             class_features.append(total_features[idx].mean(dim=0))
         else:
-            class_features.append(torch.zeros(512).cuda())
+            class_features.append(torch.zeros(args.feature_dim).cuda())
     
     class_features = torch.stack(class_features)
     
@@ -285,7 +287,10 @@ def compute_features_and_neighbors(model):
 
 
 def create_model():
-    model = PreActResNet18_3(num_classes=args.num_class)
+    if args.arch == 'PreActResNet18':
+        model = PreActResNet18_3(num_classes=args.num_class)
+    elif args.arch == 'resnet32':
+        model = resnet32(num_classes=args.num_class)
     model = model.cuda()
     return model
 
@@ -336,28 +341,54 @@ medium_shot_classes = set(sorted_classes[top_30_percent: -bottom_30_percent])
 net = create_model()
 cudnn.benchmark = True
 
-# Load MoCo pre-trained weights if available
-if os.path.isfile(args.pretrained):
-    print("=> loading checkpoint '{}'".format(args.pretrained))
-    checkpoint = torch.load(args.pretrained, map_location="cpu")
+if args.arch == "resnet32":
+    # Load MoCo pre-trained weights if available
+    if os.path.isfile(args.pretrained):
+        print("=> loading checkpoint '{}'".format(args.pretrained))
+        checkpoint = torch.load(args.pretrained, map_location="cpu")
 
-    # Rename MoCo pre-trained keys
-    state_dict = checkpoint['state_dict']
-    for k in list(state_dict.keys()):
-        # Retain only encoder_q up to before the embedding layer
-        if k.startswith('encoder_q') and not k.startswith('encoder_q.fc'):
-            # Remove prefix
-            state_dict[k[len("encoder_q."):]] = state_dict[k]
-        # Delete renamed or unused k
-        del state_dict[k]
+        # Rename MoCo pre-trained keys
+        state_dict = checkpoint['state_dict']
+        print(state_dict.keys())
+        for k in list(state_dict.keys()):
+            # Retain only encoder_q up to before the embedding layer
+            if k.startswith('module.encoder_q') and not k.startswith('module.encoder_q.fc'):
+                # Remove prefix
+                state_dict[k[len("module.encoder_q."):]] = state_dict[k]
+            # Delete renamed or unused k
+            del state_dict[k]
 
-    args.start_epoch = 0
-    msg = net.load_state_dict(state_dict, strict=False)
-    assert set(msg.missing_keys) == {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias", "linear3.weight", "linear3.bias"}
+        args.start_epoch = 0
+        msg = net.load_state_dict(state_dict, strict=False)
+        print("Actual missing keys:", msg.missing_keys)
+        assert set(msg.missing_keys) == {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias", "linear3.weight", "linear3.bias"}
 
-    print("=> loaded pre-trained model '{}'".format(args.pretrained))
+        print("=> loaded pre-trained model '{}'".format(args.pretrained))
+    else:
+        print("=> no checkpoint found at '{}'".format(args.pretrained))
 else:
-    print("=> no checkpoint found at '{}'".format(args.pretrained))
+    # Load MoCo pre-trained weights if available
+    if os.path.isfile(args.pretrained):
+        print("=> loading checkpoint '{}'".format(args.pretrained))
+        checkpoint = torch.load(args.pretrained, map_location="cpu")
+
+        # Rename MoCo pre-trained keys
+        state_dict = checkpoint['state_dict']
+        for k in list(state_dict.keys()):
+            # Retain only encoder_q up to before the embedding layer
+            if k.startswith('encoder_q') and not k.startswith('encoder_q.fc'):
+                # Remove prefix
+                state_dict[k[len("encoder_q."):]] = state_dict[k]
+            # Delete renamed or unused k
+            del state_dict[k]
+
+        args.start_epoch = 0
+        msg = net.load_state_dict(state_dict, strict=False)
+        assert set(msg.missing_keys) == {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias", "linear3.weight", "linear3.bias"}
+
+        print("=> loaded pre-trained model '{}'".format(args.pretrained))
+    else:
+        print("=> no checkpoint found at '{}'".format(args.pretrained))
 
 # Set up optimizer
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
