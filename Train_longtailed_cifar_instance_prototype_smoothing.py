@@ -152,14 +152,14 @@ class InstancePrototypeLabelSmoothing:
         # Apply temperature scaling
         similarities = similarities / self.temperature
         
-        similarity_matrix.fill_diagonal_(0)  # Zero out self-similarity
+        similarities.fill_diagonal_(0)  # Zero out self-similarity
         
         # Apply stable softmax
-        similarity_matrix = similarity_matrix - similarity_matrix.max(dim=1, keepdim=True)[0]  # For numerical stability
-        similarity_matrix = torch.exp(similarity_matrix)
-        row_sums = similarity_matrix.sum(dim=1, keepdim=True)
+        similarities = similarities - similarities.max(dim=1, keepdim=True)[0]  # For numerical stability
+        similarities = torch.exp(similarities)
+        row_sums = similarities.sum(dim=1, keepdim=True)
         row_sums = torch.clamp(row_sums, min=1e-8)  # Prevent division by zero
-        similarity_matrix = similarity_matrix / row_sums
+        similarities = similarities / row_sums
         
         return similarities
     

@@ -2,7 +2,7 @@
 
 # Bash script to run long-tailed CIFAR experiments with IBC method
 # Usage: bash run_longtailed_experiments.sh
-running_script="Train_longtailed_cifar_semantic_smoothing"
+running_script="Train_longtailed_cifar_hard_labels"
 # Create necessary directories
 mkdir -p ./checkpoint
 mkdir -p ./saved
@@ -13,9 +13,8 @@ common_args="--num_epochs 200 --warm_up 30 --arch resnet32"
 # Define experiment configurations
 # Format: "dataset imb_factor epsilon k gpuid"
 declare -a experiments=(
-    # CIFAR-100 experiments with different imbalance factors
-    "cifar100 0.1 0.1 0.2 2"    # Imbalance ratio 1:10
-    "cifar100 0.01 0.1 0.2 2"   # Imbalance ratio 1:50
+    "cifar10 0.1 0.1 0.2 6"    # Imbalance ratio 1:10
+    "cifar10 0.01 0.1 0.2 7"   # Imbalance ratio 1:50
 )
 
 # Run each experiment
