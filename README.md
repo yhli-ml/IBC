@@ -127,13 +127,13 @@ If you find our work useful for your research, please use the following BibTeX e
   li2025boosting,
   title={Boosting Class Representation via Semantically Related Instances for Robust Long-Tailed Learning with Noisy Labels},
   author={Yuhang Li and Zhuying Li and Yuheng Jia},
-  booktitle={The IEEE/CVF International Conference on Computer Vision (ICCV)},
+  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
   year={2025},
 }
 ```
 
 ## 5. Reference
-This codebase refers to DISC[[link](https://github.com/JackYFL/DISC)], POCR [[link](https://palm.seu.edu.cn/zhangml/files/POCR.zip)], PC/Forward/Free/NN/GA [[link](https://github.com/takashiishida/comp)], thank you!
+This codebase refers to DISC[[link](https://github.com/JackYFL/DISC)], SFA [[link](https://github.com/HotanLee/SFA)], thank you!
 
 ## 6. Contacts
 If you have any further questions, please feel free to send an e-mail to: yuhangli@seu.edu.cn.
