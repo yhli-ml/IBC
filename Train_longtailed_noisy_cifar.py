@@ -163,7 +163,7 @@ def train(epoch, net, net2, optimizer, labeled_trainloader, unlabeled_trainloade
 
             # 2. Increase confidence of the k nearest class prototypes in feature space
             # For tail expert
-            for i in range(batch_size): 
+            for i in range(batch_size):
                 neighbors = tail_nearest_neighbors_idx[index_x[i]]
                 num_neighbors = len(neighbors)
                 if num_neighbors > 0:
@@ -455,7 +455,7 @@ def eval_train(model, cfeats_EMA, cfeats_sq_EMA):
     
     for neighbor_type, neighbors in [
         ('head', head_nearest_neighbors_idx), 
-        ('medium', medium_nearest_neighbors_idx), 
+        ('medium', medium_nearest_neighbors_idx),
         ('tail', tail_nearest_neighbors_idx)
     ]:
         df = pd.DataFrame(neighbors)

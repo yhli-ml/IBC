@@ -93,7 +93,7 @@ class InstancePrototypeLabelSmoothing:
     
     def update_class_prototypes(self, model, dataloader, current_epoch):
         """
-        Update class prototypes based on current model embeddings.
+        Update class prototypes based on current model embeddings with improved stability.
         """
         if current_epoch - self.last_update_epoch < self.update_freq:
             return False  # Skip if not time to update yet
@@ -116,23 +116,37 @@ class InstancePrototypeLabelSmoothing:
                 for i, target in enumerate(targets):
                     total_features[target.item()].append(features[i].detach().cpu())
         
-        # Compute prototype (mean) for each class
+        # Compute prototype (mean) for each class with proper handling of edge cases
         class_prototypes = []
         for class_idx in range(self.num_classes):
             if total_features[class_idx]:
                 class_prototype = torch.stack(total_features[class_idx]).mean(0)
+                # Ensure the prototype is not a zero vector
+                if torch.norm(class_prototype) < 1e-6:
+                    print(f"Warning: Class {class_idx} has near-zero prototype, initializing randomly")
+                    class_prototype = torch.randn_like(class_prototype)
                 class_prototypes.append(F.normalize(class_prototype, p=2, dim=0))
             else:
-                # Handle empty classes (shouldn't happen with CIFAR)
-                class_prototypes.append(torch.zeros(features.shape[1]))
+                # Handle empty classes with random initialization instead of zeros
+                print(f"Warning: Class {class_idx} has no samples, initializing randomly")
+                random_prototype = torch.randn(features.shape[1], device='cpu')
+                class_prototypes.append(F.normalize(random_prototype, p=2, dim=0))
         
         self.class_prototypes = torch.stack(class_prototypes).cuda()
         self.last_update_epoch = current_epoch
+        
+        # Check for NaN values in prototypes
+        if torch.isnan(self.class_prototypes).any():
+            print("ERROR: NaN values detected in class prototypes!")
+            # Reset to random values to recover
+            rand_prototypes = F.normalize(torch.randn_like(self.class_prototypes), p=2, dim=1)
+            self.class_prototypes = rand_prototypes
         
         # Debugging info
         print(f"Class prototypes shape: {self.class_prototypes.shape}")
         return True
     
+    # Replace the compute_instance_prototype_similarities method with this fixed version
     def compute_instance_prototype_similarities(self, features):
         """
         Compute similarities between each instance and all class prototypes.
@@ -152,7 +166,8 @@ class InstancePrototypeLabelSmoothing:
         # Apply temperature scaling
         similarities = similarities / self.temperature
         
-        similarities.fill_diagonal_(0)  # Zero out self-similarity
+        # REMOVE THIS LINE - it's incorrect for batch-to-prototype matrices:
+        # similarities.fill_diagonal_(0)  # Zero out self-similarity
         
         # Apply stable softmax
         similarities = similarities - similarities.max(dim=1, keepdim=True)[0]  # For numerical stability

@@ -121,6 +121,7 @@ __MACOSX/
 /previous_method
 /results
 /saved
+/cifar100_raw_img
 *.ipynb
 Train_cifar_w_knn_samples.py
 Train_cifar_w_label_smoothing.py
