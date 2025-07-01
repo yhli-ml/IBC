@@ -12,8 +12,6 @@ This repository is the official PyTorch implementation for the **ICCV 2025** pap
 </p>
 <p align="left">
   <img width="45%" src="./img/illustration.png" alt="The comparison of IBC with baseline methods"/>
-</p>
-<p align="left">
   <img width="45%" src="./img/detail.png" alt="The detailed mechanism of IBC"/>
 </p>
 
