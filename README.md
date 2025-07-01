@@ -46,7 +46,7 @@ Note that all the experiments are conducted under one single <b>RTX 4090</b>, so
 
 ### 3.1 Datasets
 
-This code includes eight datasets including:
+This code includes five datasets including:
 CIFAR-10, CIFAR-100, WebVision, Clothing1M, Tiny-ImageNet.
 
 |Datasets|Download links|
