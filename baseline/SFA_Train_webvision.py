@@ -9,10 +9,10 @@ import os
 import sys
 import argparse
 import numpy as np
-from InceptionResNetV2 import *
-from KNNClassifier import KNNClassifier
+from utils.InceptionResNetV2 import *
+from utils.KNNClassifier import KNNClassifier
 from sklearn.mixture import GaussianMixture
-import dataloader_webvision as dataloader
+import utils.dataloader_webvision as dataloader
 import torchnet
 import torch.multiprocessing as mp
 

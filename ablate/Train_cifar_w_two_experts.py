@@ -8,10 +8,10 @@ import random
 import os
 import argparse
 import numpy as np
-from PreResNet import *
-from KNNClassifier import KNNClassifier
+from utils.PreResNet import *
+from utils.KNNClassifier import KNNClassifier
 from sklearn.mixture import GaussianMixture
-import dataloader_cifar as dataloader
+import utils.dataloader_cifar as dataloader
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import faiss

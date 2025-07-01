@@ -8,9 +8,9 @@ import random
 import os
 import argparse
 import numpy as np
-from PreResNet import *
-from resnet import resnet32
-import dataloader_longtailed_cifar as dataloader  # Import the new dataloader
+from utils.PreResNet import *
+from utils.resnet import resnet32
+import utils.dataloader_longtailed_cifar as dataloader  # Import the new dataloader
 import matplotlib.pyplot as plt
 import faiss
 import pandas as pd

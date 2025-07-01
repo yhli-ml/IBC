@@ -8,9 +8,9 @@ import random
 import os
 import argparse
 import numpy as np
-from PreResNet import *
-from KNNClassifier import KNNClassifier
-import dataloader_longtailed_cifar as dataloader
+from utils.PreResNet import *
+from utils.KNNClassifier import KNNClassifier
+import utils.dataloader_longtailed_cifar as dataloader
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import faiss
@@ -19,7 +19,7 @@ from PIL import Image
 import cv2
 import torchvision.transforms as transforms
 import pandas as pd
-from resnet import resnet32
+from utils.resnet import resnet32
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR Training for Long-tailed Distribution')
 # training hyperparameters
