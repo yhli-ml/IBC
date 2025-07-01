@@ -60,7 +60,7 @@ CIFAR-10, CIFAR-100, WebVision, Clothing1M, Tiny-ImageNet.
 If you want to run one of the datasets, please <span style="color:#0099be">download it into your data directory and change the dataset path in python scripts (see the following section)</span>.
 
 ### 3.3 Directory settings
-Please create the data directories as below and change the parameter `data-dir` in ([./main.py](./main.py)).
+Please create the data directories as below and change the parameter `data-dir` in ([./Train_longtailed_noisy_cifar.py](./Train_longtailed_noisy_cifar.py)).
 ```
 PLNL
 ├── data-dir
@@ -136,7 +136,7 @@ If you find our work useful for your research, please use the following BibTeX e
 This codebase refers to DISC[[link](https://github.com/JackYFL/DISC)], SFA [[link](https://github.com/HotanLee/SFA)], thank you!
 
 ## 6. Contacts
-If you have any further questions, please feel free to send an e-mail to: yuhangli@seu.edu.cn.
+If you have any further questions, please feel free to send an e-mail to: [[yuhangli@seu.edu.cn](mailto:yuhangli@seu.edu.cn)].
 
 ## License
 This repo is licensed under MIT License.
