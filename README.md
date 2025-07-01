@@ -1,6 +1,6 @@
 # [ICCV'25] Boosting Class Representation via Semantically Related Instances for Robust Long-Tailed Learning with Noisy Labels
 
-[[paper](https://drive.google.com/file/d/1FHMFT3CqsjMCFJakm1J2YxHGvgT91L2c/view?usp=drive_link)], [[poster (to be updated)](https://drive.google.com/file/d/1FHMFT3CqsjMCFJakm1J2YxHGvgT91L2c/view?usp=drive_link)]
+[[paper](https://drive.google.com/file/d/12MeqX-5E57OwU_x5EWls77ttV7b1Nm80/view?usp=sharing)], [[poster (to be updated)]]
 
 This repository is the official PyTorch implementation for the **ICCV 2025** paper "Boosting Class Representation via Semantically Related Instances for Robust Long-Tailed Learning with Noisy Labels", its method named **IBC**. This repository includes several baseline methods in Long-Tailed Noisy Label Learning.
 
