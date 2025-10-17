@@ -1,18 +1,24 @@
 # [ICCV'25] Boosting Class Representation via Semantically Related Instances for Robust Long-Tailed Learning with Noisy Labels
 
-[[paper](https://drive.google.com/file/d/12MeqX-5E57OwU_x5EWls77ttV7b1Nm80/view?usp=sharing)], [poster (to be updated)]
+[[paper](https://drive.google.com/file/d/1nBQ0VGsZjKX38CDX6zwXujdTjZeeUQq4/view?usp=sharing)], [[poster](https://drive.google.com/file/d/1I5jlVIRelojl-E8wSTKqCIAVqu7Rp4Fj/view?usp=sharing)]
 
 This repository is the official PyTorch implementation for the **ICCV 2025** paper "Boosting Class Representation via Semantically Related Instances for Robust Long-Tailed Learning with Noisy Labels", its method named **IBC**. This repository includes several baseline methods in Long-Tailed Noisy Label Learning.
 
 <b>Title</b>: <i>Boosting Class Representation via Semantically Related Instances for Robust Long-Tailed Learning with Noisy Labels</i>
 
-<b>Illustration</b>
+<b>The pipeline of IBC</b>
 <p align="center">
   <img width="90%" src="./img/pipeline.png" alt="The pipeline of IBC"/>
 </p>
+
+<b>The comparison of IBC with baseline methods</b>
 <p align="left">
   <img width="45%" src="./img/illustration.png" alt="The comparison of IBC with baseline methods"/>
-  <img width="45%" src="./img/detail.png" alt="The detailed mechanism of IBC"/>
+</p>
+
+<b>The detailed mechanism of IBC</b>
+<p align="left">
+<img width="45%" src="./img/detail.png" alt="The detailed mechanism of IBC"/>
 </p>
 
 ## Contents
