@@ -6,7 +6,7 @@ This repository is the official PyTorch implementation for the **ICCV 2025** pap
 
 <b>Title</b>: <i>Boosting Class Representation via Semantically Related Instances for Robust Long-Tailed Learning with Noisy Labels</i>
 
-<b>The pipeline of IBC</b>
+<!-- <b>The pipeline of IBC</b>
 <p align="center">
   <img width="90%" src="./img/pipeline.png" alt="The pipeline of IBC"/>
 </p>
@@ -19,7 +19,7 @@ This repository is the official PyTorch implementation for the **ICCV 2025** pap
 <b>The detailed mechanism of IBC</b>
 <p align="left">
 <img width="45%" src="./img/detail.png" alt="The detailed mechanism of IBC"/>
-</p>
+</p> -->
 
 ## Contents
 - [IBC](#Boosting-Class-Representation-via-Semantically-Related-Instances-for-Robust-Long-Tailed-Learning-with-Noisy-Labels)
