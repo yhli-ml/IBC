@@ -65,6 +65,9 @@ CIFAR-10, CIFAR-100, WebVision, Clothing1M, Tiny-ImageNet.
 
 If you want to run one of the datasets, please <span style="color:#0099be">download it into your data directory and change the dataset path in python scripts (see the following section)</span>.
 
+### 3.2 Pre-Trained Weights
+You can download the pre-trained weights from [link](https://huggingface.co/yhli2002/IBC).
+
 ### 3.3 Directory settings
 Please create the data directories as below and change the parameter `data-dir` in ([./Train_longtailed_noisy_cifar.py](./Train_longtailed_noisy_cifar.py)).
 ```
